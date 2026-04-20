@@ -16,6 +16,18 @@ const saveFbSession = (data) =>
 const clearFbSession = () =>
   localStorage.removeItem(FB_SESSION_KEY);
 
+const safeParseJson = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const error = new Error('Facebook returned an invalid response while connecting.');
+    error.code = response.status || 500;
+    throw error;
+  }
+};
+
 /* ─── provider ─────────────────────────────────────────────── */
 export const FacebookDataProvider = ({ children }) => {
   const { isLoggedIn, authReady } = useAuth();
@@ -65,12 +77,11 @@ export const FacebookDataProvider = ({ children }) => {
         `https://graph.facebook.com/me?fields=${fields}&access_token=${accessToken}`
       );
 
+      const data = await safeParseJson(graphRes);
       if (!graphRes.ok) {
-        const errData = await graphRes.json();
+        const errData = data;
         throw new Error(errData?.error?.message || 'Failed to fetch Facebook profile.');
       }
-
-      const data = await graphRes.json();
 
       const profile = {
         id:      data.id,

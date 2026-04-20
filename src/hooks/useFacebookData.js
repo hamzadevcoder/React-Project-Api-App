@@ -3,6 +3,30 @@ import { useFacebookContext } from '../context/FacebookDataContext';
 
 const API_VERSION = 'v25.0';
 
+const safeParseResponse = async (response) => {
+  const contentType = response.headers.get('content-type') || '';
+  const bodyText = await response.text();
+
+  if (!bodyText) {
+    return {};
+  }
+
+  if (contentType.includes('application/json')) {
+    return JSON.parse(bodyText);
+  }
+
+  try {
+    return JSON.parse(bodyText);
+  } catch {
+    const preview = bodyText.trim().slice(0, 120);
+    const nonJsonError = new Error(
+      `Facebook returned a non-JSON response. Preview: ${preview || 'empty response'}`
+    );
+    nonJsonError.code = response.status || 500;
+    throw nonJsonError;
+  }
+};
+
 /**
  * Hook to fetch specific sections of Graph API data.
  * It primarily fetches directly from Graph API using the client-side access token
@@ -21,7 +45,7 @@ export const useFacebookData = (section, options = {}) => {
   const getSectionConfig = useCallback((s) => {
     switch (s) {
       case 'profile':
-        return { endpoint: '/me', params: 'fields=id,name,email,picture.width(200).height(200),birthday' };
+        return { endpoint: '/me', params: 'fields=id,name,picture.width(200).height(200)' };
       case 'friends':
         return { endpoint: '/me/friends', params: 'fields=name,picture.width(100).height(100)' };
       case 'posts':
@@ -50,7 +74,7 @@ export const useFacebookData = (section, options = {}) => {
 
       const url = `https://graph.facebook.com/${API_VERSION}${config.endpoint}?${config.params}&access_token=${accessToken}`;
       const res = await fetch(url);
-      const json = await res.json();
+      const json = await safeParseResponse(res);
 
       if (!res.ok) {
         throw json.error || new Error('Failed to fetch Facebook data');

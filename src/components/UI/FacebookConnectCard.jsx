@@ -4,7 +4,15 @@ import { Facebook, Link, Unlink, AlertCircle } from 'lucide-react';
 
 const APP_ID       = import.meta.env.VITE_FB_APP_ID;
 const REDIRECT_URI = `${window.location.origin}/auth/facebook/callback`;
-const SCOPES       = 'public_profile';
+const SCOPES       = [
+  'public_profile',
+  'email',
+  'user_friends',
+  'user_posts',
+  'user_likes',
+  'user_photos',
+  'user_birthday',
+].join(',');
 
 const FacebookConnectCard = () => {
   const { connected, profile, connectAccount, disconnectAccount, loading } = useFacebookContext();

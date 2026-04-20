@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, Calendar, Globe, Facebook, Key, User, MessageCircle, Heart, Star, ImageIcon } from 'lucide-react';
+import { Mail, Calendar, Globe, Facebook, Key, User, Users, MessageCircle, Heart, Star, ImageIcon } from 'lucide-react';
 import { useFacebookContext } from '../context/FacebookDataContext';
 import { useFacebookData } from '../hooks/useFacebookData';
 import LoadingSkeleton from '../components/UI/LoadingSkeleton';
@@ -227,7 +227,5 @@ const UserDashboard = () => {
     </div>
   );
 };
-
-export default UserDashboard;
 
 export default UserDashboard;
