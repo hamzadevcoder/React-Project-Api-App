@@ -12,11 +12,18 @@ import { useEffect } from 'react';
  */
 const FacebookCallbackPage = () => {
   useEffect(() => {
-    const hash = window.location.hash;         // e.g. #access_token=EAA...&token_type=bearer&...
-    const params = new URLSearchParams(hash.replace('#', ''));
-    const accessToken = params.get('access_token');
-    const error       = params.get('error');
-    const errorReason = params.get('error_reason');
+    // 1. Try to find the token in the hash (implicit flow default)
+    const hash = window.location.hash;
+    const hashParams = new URLSearchParams(hash.replace('#', ''));
+    
+    // 2. Try to find it in search (if redirected as query params)
+    const searchParams = new URLSearchParams(window.location.search);
+
+    const accessToken = hashParams.get('access_token') || searchParams.get('access_token');
+    const error       = hashParams.get('error')        || searchParams.get('error');
+    const errorReason = hashParams.get('error_reason') || searchParams.get('error_reason') || searchParams.get('error_description');
+
+    console.log('[FB Callback] Token:', !!accessToken, 'Error:', error || errorReason);
 
     if (window.opener) {
       if (accessToken) {
@@ -30,13 +37,17 @@ const FacebookCallbackPage = () => {
           window.location.origin
         );
       }
-      window.close();
+      // Give the message a moment to send before closing
+      setTimeout(() => window.close(), 100);
     } else {
       // Fallback: no opener — store in localStorage and redirect back to dashboard
       if (accessToken) {
         localStorage.setItem('fb_pending_token', accessToken);
+        window.location.href = '/dashboard';
+      } else {
+        // If error and no opener, just go home
+        window.location.href = '/';
       }
-      window.location.href = '/dashboard';
     }
   }, []);
 

@@ -60,21 +60,27 @@ const FacebookConnectCard = () => {
 
     /* Listen for the postMessage from FacebookCallbackPage */
     const onMessage = async (event) => {
+      console.log('[FB Connect] Message received:', event.data?.type, event.origin);
       if (event.origin !== window.location.origin) return;
 
       if (event.data?.type === 'FB_OAUTH_SUCCESS') {
         window.removeEventListener('message', onMessage);
         listenerRef.current = null;
 
+        console.log('[FB Connect] Success! Token received.');
         const result = await connectAccount(event.data.accessToken);
         setAuthInProgress(false);
-        if (!result.success) setErrorMsg(result.error || 'Failed to connect Facebook account.');
+        if (!result.success) {
+          console.error('[FB Connect] connectAccount failed:', result.error);
+          setErrorMsg(result.error || 'Failed to connect Facebook account.');
+        }
       }
 
       if (event.data?.type === 'FB_OAUTH_ERROR') {
         window.removeEventListener('message', onMessage);
         listenerRef.current = null;
         setAuthInProgress(false);
+        console.error('[FB Connect] Authorization error:', event.data.error);
         setErrorMsg(event.data.error || 'Facebook authorization was cancelled.');
       }
     };

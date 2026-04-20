@@ -34,6 +34,16 @@ export const FacebookDataProvider = ({ children }) => {
       setLoading(false);
       return;
     }
+
+    // 1. Check for a pending token from a redirect fallback
+    const pendingToken = localStorage.getItem('fb_pending_token');
+    if (pendingToken) {
+      localStorage.removeItem('fb_pending_token');
+      connectAccount(pendingToken);
+      return; // connectAccount will handle the rest
+    }
+
+    // 2. Load existing session
     const saved = loadFbSession();
     if (saved) {
       setConnected(true);
