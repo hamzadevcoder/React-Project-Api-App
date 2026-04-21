@@ -45,7 +45,7 @@ export const useFacebookData = (section, options = {}) => {
   const getSectionConfig = useCallback((s) => {
     switch (s) {
       case 'profile':
-        return { endpoint: '/me', params: 'fields=id,name,picture.width(200).height(200)' };
+        return { endpoint: '/me', params: 'fields=id,name,email,birthday,picture.width(200).height(200)' };
       case 'friends':
         return { endpoint: '/me/friends', params: 'fields=name,picture.width(100).height(100)' };
       case 'posts':
@@ -53,9 +53,17 @@ export const useFacebookData = (section, options = {}) => {
       case 'photos':
         return { endpoint: '/me/photos', params: 'type=uploaded&limit=12&fields=images,created_time' };
       case 'pages':
-        return { endpoint: '/me/accounts', params: 'fields=name,category,followers_count,picture.width(100).height(100)' };
+        return { endpoint: '/me/accounts', params: 'fields=name,category,followers_count,fan_count,picture.width(100).height(100)' };
       case 'likes':
         return { endpoint: '/me/likes', params: 'fields=name,category,picture.width(100).height(100)&limit=15' };
+      case 'adaccounts':
+        return { endpoint: '/me/adaccounts', params: 'fields=name,account_id,account_status,amount_spent,balance,currency,insights.limit(1){spend,impressions,clicks,ctr,reach}' };
+      case 'leads':
+        return { endpoint: '/me/accounts', params: 'fields=name,leadgen_forms{name,status,lead_count,created_time}' };
+      case 'conversations':
+        return { endpoint: '/me/accounts', params: 'fields=name,conversations.limit(10){senders,unread_count,updated_time,snippets,messages.limit(1){message,created_time,from}}' };
+      case 'business_insights':
+        return { endpoint: '/me/accounts', params: 'fields=name,insights.metric(page_impressions,page_engaged_users,page_posts_impressions,page_fan_adds){values}' };
       default:
         return null;
     }

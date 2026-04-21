@@ -38,6 +38,10 @@ const LoginPage = () => {
       if (mode === 'login') {
         const result = await login({ email: form.email, password: form.password });
         if (!result.success) {
+          if (result.requiresVerification) {
+            navigate('/verify-email', { state: { email: result.email } });
+            return;
+          }
           setError(result.error);
           return;
         }
@@ -58,8 +62,8 @@ const LoginPage = () => {
         return;
       }
 
-      // No email verification — go straight to dashboard
-      navigate('/dashboard');
+      // Redirect to verification page after successful signup
+      navigate('/verify-email', { state: { email: form.email } });
     } catch (err) {
       console.error('Unhandled submission error:', err);
       setError('An unexpected error occurred. Please try again.');

@@ -40,6 +40,9 @@ const ScopePage = () => {
   const { scopeId } = useParams();
   const [loading, setLoading] = useState(true);
   
+  const [copiedScope, setCopiedScope] = useState(false);
+  const [copiedCurl, setCopiedCurl] = useState(false);
+  
   // Fake loading state for UX polish
   useEffect(() => {
     setLoading(true);
@@ -60,10 +63,14 @@ const ScopePage = () => {
 
   const handleCopyScope = () => {
     navigator.clipboard.writeText(scope.name);
+    setCopiedScope(true);
+    setTimeout(() => setCopiedScope(false), 2000);
   };
 
   const handleCopyCurl = () => {
     navigator.clipboard.writeText(scope.curlExample);
+    setCopiedCurl(true);
+    setTimeout(() => setCopiedCurl(false), 2000);
   };
 
   if (loading) {
@@ -219,15 +226,15 @@ const ScopePage = () => {
           onClick={handleCopyScope}
           className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-dark-bg rounded-lg text-sm font-medium transition"
         >
-          <Copy size={16} className="text-facebook-blue" />
-          <span>Copy Scope</span>
+          {copiedScope ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-facebook-blue" />}
+          <span>{copiedScope ? 'Copied!' : 'Copy Scope'}</span>
         </button>
         <button 
           onClick={handleCopyCurl}
           className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-dark-bg rounded-lg text-sm font-medium transition"
         >
-          <Code size={16} className="text-orange-500" />
-          <span>Copy cURL</span>
+          {copiedCurl ? <Check size={16} className="text-green-500" /> : <Code size={16} className="text-orange-500" />}
+          <span>{copiedCurl ? 'Copied!' : 'Copy cURL'}</span>
         </button>
         <div className="w-px bg-gray-200 dark:bg-dark-border my-2 hidden md:block"></div>
         <a 

@@ -67,35 +67,17 @@ export const FacebookDataProvider = ({ children }) => {
 
   /**
    * Called after Facebook SDK login returns an access token.
-   * Fetches basic profile from Graph API directly (no backend needed).
+   * Sends short-lived token to backend for exchange and storage.
    */
-  const connectAccount = async (accessToken) => {
+  const connectAccount = async (shortLivedToken) => {
     try {
-      // Fetch basic profile from Graph API client-side
-      const fields = 'id,name,picture.width(200).height(200)';
-      const graphRes = await fetch(
-        `https://graph.facebook.com/me?fields=${fields}&access_token=${accessToken}`
-      );
-
-      const data = await safeParseJson(graphRes);
-      if (!graphRes.ok) {
-        const errData = data;
-        throw new Error(errData?.error?.message || 'Failed to fetch Facebook profile.');
-      }
-
-      const profile = {
-        id:      data.id,
-        name:    data.name,
-        email:   '',
-        picture: data.picture?.data?.url || '',
-      };
-
+      // 1. Send to backend for long-lived exchange and persistence
+      const res = await api.post('/facebook/connect', { shortLivedToken });
+      
+      const { profile } = res.data;
       const fbData = {
-        accessToken,
-        id:      data.id,
-        name:    data.name,
-        email:   '',
-        picture: data.picture?.data?.url || '',
+        accessToken: shortLivedToken, // Fallback for client-side calls
+        ...profile
       };
 
       saveFbSession({ profile, fbData });
@@ -106,7 +88,32 @@ export const FacebookDataProvider = ({ children }) => {
       return { success: true };
     } catch (err) {
       console.error('connectAccount error:', err);
-      return { success: false, error: err.message };
+      // Fallback: If backend fails (e.g. no DB), try client-side only
+      console.log('Backend connection failed, falling back to client-side only mode.');
+      
+      try {
+        const fields = 'id,name,picture.width(200).height(200)';
+        const graphRes = await fetch(
+          `https://graph.facebook.com/me?fields=${fields}&access_token=${shortLivedToken}`
+        );
+        const data = await safeParseJson(graphRes);
+        if (!graphRes.ok) throw new Error(data?.error?.message || 'Failed to fetch Facebook profile.');
+
+        const profile = {
+          id:      data.id,
+          name:    data.name,
+          picture: data.picture?.data?.url || '',
+        };
+        const fbData = { accessToken: shortLivedToken, ...profile };
+
+        saveFbSession({ profile, fbData });
+        setConnected(true);
+        setProfile(profile);
+        setFbData(fbData);
+        return { success: true };
+      } catch (clientErr) {
+        return { success: false, error: clientErr.message };
+      }
     }
   };
 
