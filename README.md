@@ -51,6 +51,13 @@ Inside your [Meta Developer Dashboard](https://developers.facebook.com/):
 - Enter `http://localhost:5173/` as your Valid OAuth Redirect URI.
 - Ensure the app has requested advanced access points or is in developer mode for `public_profile`, `email`, `user_friends`, `user_posts`, and `user_photos`.
 
+Use these exact callback URIs in **Facebook Login → Settings → Valid OAuth Redirect URIs**:
+- `https://react-project-api-app-production.up.railway.app/auth/facebook/callback`
+- `http://localhost:5173/auth/facebook/callback`
+- `http://127.0.0.1:5173/auth/facebook/callback`
+
+The app now defaults OAuth scopes to `public_profile,email` (`VITE_FB_LOGIN_SCOPES`) to avoid invalid/restricted scope errors for normal users.
+
 ### 4. Installation
 Install dependencies utilizing the strict legacy tree resolver due to specialized nested React 19 abstractions:
 

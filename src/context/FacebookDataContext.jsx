@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useAuth } from './AuthContext';
+import api from '../utils/api';
 
 const FacebookDataContext = createContext(null);
 const FB_SESSION_KEY = 'graph_app_fb_connection';

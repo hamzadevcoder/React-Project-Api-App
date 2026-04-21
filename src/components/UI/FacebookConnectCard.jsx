@@ -4,15 +4,12 @@ import { Facebook, Link, Unlink, AlertCircle } from 'lucide-react';
 
 const APP_ID       = import.meta.env.VITE_FB_APP_ID;
 const REDIRECT_URI = `${window.location.origin}/auth/facebook/callback`;
-const SCOPES       = [
-  'public_profile',
-  'email',
-  'user_friends',
-  'user_posts',
-  'user_likes',
-  'user_photos',
-  'user_birthday',
-].join(',');
+const DEFAULT_SCOPES = ['public_profile', 'email'];
+const SCOPES = (import.meta.env.VITE_FB_LOGIN_SCOPES || DEFAULT_SCOPES.join(','))
+  .split(',')
+  .map((scope) => scope.trim())
+  .filter(Boolean)
+  .join(',');
 
 const FacebookConnectCard = () => {
   const { connected, profile, connectAccount, disconnectAccount, loading } = useFacebookContext();
@@ -89,7 +86,8 @@ const FacebookConnectCard = () => {
         listenerRef.current = null;
         setAuthInProgress(false);
         console.error('[FB Connect] Authorization error:', event.data.error);
-        setErrorMsg(event.data.error || 'Facebook authorization was cancelled.');
+        const reason = event.data.error || 'Facebook authorization was cancelled.';
+        setErrorMsg(`Facebook login failed: ${reason}. Check your Meta app permissions and OAuth redirect URI settings.`);
       }
     };
 
