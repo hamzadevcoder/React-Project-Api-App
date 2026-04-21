@@ -4,12 +4,16 @@ import { Facebook, Link, Unlink, AlertCircle } from 'lucide-react';
 
 const APP_ID       = import.meta.env.VITE_FB_APP_ID;
 const REDIRECT_URI = `${window.location.origin}/auth/facebook/callback`;
-const DEFAULT_SCOPES = ['public_profile', 'email'];
-const SCOPES = (import.meta.env.VITE_FB_LOGIN_SCOPES || DEFAULT_SCOPES.join(','))
+// Keep login scopes minimal to avoid Meta "Invalid Scopes" failures.
+// Some app configurations reject `email` unless specific products/settings are enabled.
+const DEFAULT_SCOPES = ['public_profile'];
+const allowEmailScope = import.meta.env.VITE_FB_INCLUDE_EMAIL_SCOPE === 'true';
+const configuredScopes = (import.meta.env.VITE_FB_LOGIN_SCOPES || DEFAULT_SCOPES.join(','))
   .split(',')
   .map((scope) => scope.trim())
-  .filter(Boolean)
-  .join(',');
+  .filter(Boolean);
+const filteredScopes = configuredScopes.filter((scope) => scope !== 'email' || allowEmailScope);
+const SCOPES = (filteredScopes.length ? filteredScopes : DEFAULT_SCOPES).join(',');
 
 const FacebookConnectCard = () => {
   const { connected, profile, connectAccount, disconnectAccount, loading } = useFacebookContext();
