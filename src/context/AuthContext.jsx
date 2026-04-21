@@ -36,7 +36,6 @@ export const AuthProvider = ({ children }) => {
         success: true,
         email: res.data.email,
         user: res.data.user,
-        requiresVerification: Boolean(res.data.requiresVerification),
       };
     } catch (err) {
       return { success: false, error: err.message };
@@ -49,36 +48,6 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post('/auth/login', { email, password });
       setUser(res.data.user);
       return { success: true, user: res.data.user };
-    } catch (err) {
-      // Handle the case where email verification is required
-      if (err.status === 403 && err.message.includes('verify')) {
-        return { 
-          success: false, 
-          error: err.message, 
-          requiresVerification: true, 
-          email: email 
-        };
-      }
-      return { success: false, error: err.message };
-    }
-  };
-
-  /* ── verifyEmail ── */
-  const verifyEmail = async ({ email, code }) => {
-    try {
-      const res = await api.post('/auth/verify-email', { email, code });
-      setUser(res.data.user);
-      return { success: true, user: res.data.user };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  };
-
-  /* ── resendCode ── */
-  const resendCode = async (email) => {
-    try {
-      await api.post('/auth/resend-code', { email });
-      return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -107,8 +76,6 @@ export const AuthProvider = ({ children }) => {
         authReady,
         login,
         signup,
-        verifyEmail,
-        resendCode,
         logout,
         refreshMe,
       }}

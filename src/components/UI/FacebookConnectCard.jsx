@@ -7,7 +7,7 @@ const APP_ID       = import.meta.env.VITE_FB_APP_ID;
 const REDIRECT_URI = `${window.location.origin}/auth/facebook/callback`;
 // Keep login scopes minimal to avoid Meta "Invalid Scopes" failures.
 // Some app configurations reject `email` unless specific products/settings are enabled.
-const DEFAULT_SCOPES = ['public_profile'];
+const DEFAULT_SCOPES = [];
 const allowEmailScope = import.meta.env.VITE_FB_INCLUDE_EMAIL_SCOPE === 'true';
 const OAUTH_STATE_KEY = 'fb_oauth_state';
 const configuredScopes = (import.meta.env.VITE_FB_LOGIN_SCOPES || DEFAULT_SCOPES.join(','))
@@ -44,11 +44,12 @@ const FacebookConnectCard = () => {
     sessionStorage.setItem(OAUTH_STATE_KEY, state);
 
     // Build the Facebook OAuth URL (implicit / token flow)
+    const scopeParam = SCOPES ? `&scope=${encodeURIComponent(SCOPES)}` : '';
     const oauthUrl =
       `https://www.facebook.com/dialog/oauth` +
       `?client_id=${APP_ID}` +
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-      `&scope=${encodeURIComponent(SCOPES)}` +
+      scopeParam +
       `&response_type=code` +
       `&state=${encodeURIComponent(state)}` +
       `&display=popup`;

@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { FacebookDataProvider } from './context/FacebookDataContext';
 import Layout from './components/Layout/Layout';
 import LoginPage from './pages/auth/LoginPage';
-import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import FacebookCallbackPage from './pages/auth/FacebookCallbackPage';
 
 import UserDashboard from './pages/UserDashboard';
@@ -34,7 +33,6 @@ function AppRoutes() {
     <Routes>
       {/* Public: login & OAuth callbacks */}
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/auth/facebook/callback" element={<FacebookCallbackPage />} />
 
       {/* All protected routes live inside Layout (sidebar visible) */}

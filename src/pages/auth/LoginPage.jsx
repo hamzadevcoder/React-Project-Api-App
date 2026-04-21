@@ -38,10 +38,6 @@ const LoginPage = () => {
       if (mode === 'login') {
         const result = await login({ email: form.email, password: form.password });
         if (!result.success) {
-          if (result.requiresVerification) {
-            navigate('/verify-email', { state: { email: result.email } });
-            return;
-          }
           setError(result.error);
           return;
         }
@@ -59,11 +55,6 @@ const LoginPage = () => {
 
       if (!result.success) {
         setError(result.error);
-        return;
-      }
-
-      if (result.requiresVerification) {
-        navigate('/verify-email', { state: { email: form.email } });
         return;
       }
 
