@@ -32,7 +32,7 @@ const FacebookConnectCard = () => {
   const handleConnect = () => {
     setErrorMsg('');
 
-    if (!APP_ID || APP_ID === 'your_numeric_meta_app_id_here') {
+    if (!APP_ID) {
       setErrorMsg('Missing VITE_FB_APP_ID in .env. Add your Meta App ID and restart the dev server.');
       return;
     }

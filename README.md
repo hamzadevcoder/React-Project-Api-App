@@ -37,11 +37,11 @@ You must create a `.env` file at the root of the project to wire your custom Met
 
 ```env
 # Exposed to the backend Express server
-FB_APP_ID=your_numeric_meta_app_id_here
+FB_APP_ID=1259107226290612
 FB_APP_SECRET=your_secret_hash_here
 
 # Exposed to Vite's Frontend SDK Initializer
-VITE_FB_APP_ID=your_numeric_meta_app_id_here
+VITE_FB_APP_ID=1259107226290612
 ```
 
 ### 3. Meta Developer App Configuration
