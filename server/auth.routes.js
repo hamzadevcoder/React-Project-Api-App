@@ -113,6 +113,12 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+// Alias for /signup to support /register as requested in checklist
+router.post('/register', (req, res, next) => {
+  req.url = '/signup';
+  router.handle(req, res, next);
+});
+
 /**
  * Verifies a 6-digit code, marks email verified, and logs user in.
  */

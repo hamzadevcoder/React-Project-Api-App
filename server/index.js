@@ -23,6 +23,12 @@ app.options('*', cors());
 app.use(express.json());
 app.use(cookieParser());
 
+// Request logger for debugging (Moved to top)
+app.use((req, res, next) => {
+  console.log(`[Backend] ${req.method} ${req.url} (${new Date().toLocaleTimeString()})`);
+  next();
+});
+
 // Mount authentication routes underneath /auth
 app.use('/auth', authRoutes);
 
@@ -34,25 +40,23 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
-// Request logger for debugging
-app.use((req, res, next) => {
-  console.log(`[Backend] ${req.method} ${req.url}`);
-  next();
-});
-
 // Global catch-all
 app.use('*', (req, res) => {
   console.warn(`[Backend] 404/405 at ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: `Route ${req.originalUrl} not found on backend.` });
 });
 
+// Start server immediately
+app.listen(PORT, () => {
+  console.log(`🚀 Backend server listening at http://127.0.0.1:${PORT}`);
+});
+
+// Attempt database connection in the background
 connectToDatabase()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Backend server listening at http://localhost:${PORT}`);
-    });
+  .then((success) => {
+    if (success) console.log('✅ Database connected successfully');
+    else console.warn('⚠️  Database connection failed, operating in Mock Mode.');
   })
   .catch((error) => {
-    console.error('Failed to start backend server:', error);
-    process.exit(1);
+    console.error('❌ Critical database error:', error);
   });

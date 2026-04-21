@@ -1,14 +1,21 @@
 import axios from 'axios';
 
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-const baseURL = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
 const api = axios.create({
-  baseURL,
+  baseURL: configuredBaseUrl || '/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+api.interceptors.request.use((config) => {
+  const method = (config.method || 'GET').toUpperCase();
+  const base = config.baseURL || '';
+  const url = config.url || '';
+  console.log(`[API Request] ${method} ${base}${url}`);
+  return config;
 });
 
 /* 
@@ -18,12 +25,11 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (!error.response) {
-      const networkError = new Error('Network error: cannot reach API server. Verify VITE_API_BASE_URL and backend deployment.');
-      networkError.status = 0;
-      networkError.details = error.message;
-      return Promise.reject(networkError);
-    }
+    const status = error.response?.status ?? 'NO_RESPONSE';
+    const method = (error.config?.method || 'GET').toUpperCase();
+    const base = error.config?.baseURL || '';
+    const url = error.config?.url || '';
+    console.error(`[API Error] ${method} ${base}${url} -> ${status}`, error.response?.data || error.message);
 
     const message = error.response?.data?.error || error.message || 'An unexpected error occurred.';
     
