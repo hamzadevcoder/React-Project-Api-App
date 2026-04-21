@@ -67,7 +67,15 @@ npm run dev
 
 *The App is now accessible at `http://localhost:5173/`. All API requests pointing to `/api/*` are safely proxied to port `3000` via Vite.*
 
-For production (Vercel/Railway), set `VITE_API_BASE_URL` to your backend API domain (for example `https://your-backend.railway.app/api`) so auth POST requests are not sent to the static frontend host, which can return `405 Method Not Allowed`.
+For production (Vercel/Railway), set `VITE_API_BASE_URL` to your backend API domain (for example `https://your-backend.railway.app/api`) if frontend and backend are deployed as separate services, so auth POST requests are not sent to the static frontend host (which can return `405 Method Not Allowed`).
+
+If you deploy this repo as a single Railway service, use:
+- Build command: `npm run build`
+- Start command: `npm start`
+
+The Express server now serves both:
+- API routes under `/api/*`
+- the React app from `dist` for all non-API routes
 
 ### 6. Production Builds
 To build the static application payload:

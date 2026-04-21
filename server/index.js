@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import facebookRoutes from './facebook.routes.js';
 import authRoutes from './auth.routes.js';
 import { connectToDatabase } from './db.js';
@@ -11,6 +13,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.resolve(__dirname, '../dist');
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -60,11 +65,21 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
-// Global catch-all
-app.use((req, res) => {
-  console.warn(`[Backend] 404/405 at ${req.method} ${req.originalUrl}`);
+// API catch-all should stay JSON.
+app.use(['/api', '/auth', '/facebook'], (req, res) => {
+  console.warn(`[Backend] API route not found at ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: `Route ${req.originalUrl} not found on backend.` });
 });
+
+// In production, serve the built React app from Express so Railway
+// can host both frontend and backend on one service/domain.
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(distPath));
+
+  app.get(/.*/, (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 // Start server immediately
 app.listen(PORT, () => {
