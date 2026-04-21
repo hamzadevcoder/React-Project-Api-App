@@ -1,9 +1,15 @@
 import axios from 'axios';
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const isLocalHost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const resolvedBaseUrl = configuredBaseUrl || (isLocalHost ? '/api' : '/api');
+
+if (!configuredBaseUrl && !isLocalHost) {
+  console.warn('[API Config] VITE_API_BASE_URL is not set in production; requests will use /api on the current domain.');
+}
 
 const api = axios.create({
-  baseURL: configuredBaseUrl || '/api',
+  baseURL: resolvedBaseUrl,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -12,9 +18,8 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const method = (config.method || 'GET').toUpperCase();
-  const base = config.baseURL || '';
-  const url = config.url || '';
-  console.log(`[API Request] ${method} ${base}${url}`);
+  const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
+  console.log(`[API Request] method=${method} url=${fullUrl}`);
   return config;
 });
 
@@ -27,9 +32,11 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status ?? 'NO_RESPONSE';
     const method = (error.config?.method || 'GET').toUpperCase();
-    const base = error.config?.baseURL || '';
-    const url = error.config?.url || '';
-    console.error(`[API Error] ${method} ${base}${url} -> ${status}`, error.response?.data || error.message);
+    const fullUrl = `${error.config?.baseURL || ''}${error.config?.url || ''}`;
+    console.error(
+      `[API Error] method=${method} url=${fullUrl} status=${status}`,
+      error.response?.data || error.message
+    );
 
     const message = error.response?.data?.error || error.message || 'An unexpected error occurred.';
     

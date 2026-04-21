@@ -42,6 +42,7 @@ FB_APP_SECRET=your_secret_hash_here
 
 # Exposed to Vite's Frontend SDK Initializer
 VITE_FB_APP_ID=1259107226290612
+VITE_API_BASE_URL=http://localhost:3000/api
 ```
 
 ### 3. Meta Developer App Configuration
@@ -65,6 +66,8 @@ npm run dev
 ```
 
 *The App is now accessible at `http://localhost:5173/`. All API requests pointing to `/api/*` are safely proxied to port `3000` via Vite.*
+
+For production (Vercel/Railway), set `VITE_API_BASE_URL` to your backend API domain (for example `https://your-backend.railway.app/api`) so auth POST requests are not sent to the static frontend host, which can return `405 Method Not Allowed`.
 
 ### 6. Production Builds
 To build the static application payload:

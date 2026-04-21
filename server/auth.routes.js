@@ -9,6 +9,11 @@ import { findMockUserByEmail, saveMockUser } from './mockDb.js';
 const router = express.Router();
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
 
+router.use((req, _res, next) => {
+  console.log(`[Auth Route Hit] ${req.method} /auth${req.path}`);
+  next();
+});
+
 /**
  * Creates a random 6-digit verification code.
  */
@@ -18,24 +23,31 @@ const generateVerificationCode = () => String(Math.floor(100000 + Math.random() 
  * Sends verification email using SMTP credentials in environment variables.
  */
 const sendVerificationEmail = async (toEmail, code) => {
+  console.log(`[EMAIL CODE] ${toEmail} -> ${code}`);
   if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.log(`[DEV EMAIL] verification code for ${toEmail}: ${code}`);
-    return;
+    return true;
   }
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT || 587),
-    secure: Number(process.env.EMAIL_PORT) === 465,
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: Number(process.env.EMAIL_PORT || 587),
+      secure: Number(process.env.EMAIL_PORT) === 465,
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    });
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to: toEmail,
-    subject: 'Your verification code',
-    text: `Your verification code is ${code}. It expires in 10 minutes.`,
-  });
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: toEmail,
+      subject: 'Your verification code',
+      text: `Your verification code is ${code}. It expires in 10 minutes.`,
+    });
+    return true;
+  } catch (error) {
+    console.error(`[EMAIL] Failed to send code to ${toEmail}:`, error.message);
+    return false;
+  }
 };
 
 /**
@@ -53,9 +65,9 @@ const sanitizeUser = (user) => ({
 const isDbConnected = () => mongoose.connection.readyState === 1;
 
 /**
- * Registers a new account and sends email verification code.
+ * Shared register handler for /signup and /register.
  */
-router.post('/signup', async (req, res) => {
+const handleRegister = async (req, res) => {
   try {
     const { fullName, email, password, confirmPassword } = req.body;
 
@@ -105,19 +117,24 @@ router.post('/signup', async (req, res) => {
       user = saveMockUser(userData);
     }
 
-    await sendVerificationEmail(user.email, verificationCode);
+    const emailSent = await sendVerificationEmail(user.email, verificationCode);
+    if (!emailSent && process.env.REQUIRE_EMAIL_DELIVERY === 'true') {
+      return res.status(503).json({ error: 'Unable to send verification email right now. Please try again later.' });
+    }
     return res.status(201).json({ success: true, email: user.email });
   } catch (error) {
     console.error('Signup error:', error);
     return res.status(500).json({ error: 'Failed to create account.' });
   }
-});
+};
+
+/**
+ * Registers a new account and sends email verification code.
+ */
+router.post('/signup', handleRegister);
 
 // Alias for /signup to support /register as requested in checklist
-router.post('/register', (req, res, next) => {
-  req.url = '/signup';
-  router.handle(req, res, next);
-});
+router.post('/register', handleRegister);
 
 /**
  * Verifies a 6-digit code, marks email verified, and logs user in.
@@ -186,7 +203,10 @@ router.post('/resend-code', async (req, res) => {
       saveMockUser(user);
     }
 
-    await sendVerificationEmail(user.email, user.verification_code);
+    const emailSent = await sendVerificationEmail(user.email, user.verification_code);
+    if (!emailSent && process.env.REQUIRE_EMAIL_DELIVERY === 'true') {
+      return res.status(503).json({ error: 'Unable to resend code right now. Please try again later.' });
+    }
     return res.json({ success: true });
   } catch (error) {
     console.error('Resend code error:', error);

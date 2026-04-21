@@ -13,12 +13,26 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: (origin, callback) => {
+    const explicitOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_ORIGIN || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+    const allowedOrigins = [...new Set([...defaultOrigins, ...explicitOrigins])];
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`CORS blocked origin: ${origin}`));
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 }));
 
-// Explicit preflight handler
-app.options('*', cors());
+// Explicit preflight handler (Express 5-safe wildcard)
+app.options(/.*/, cors());
 
 app.use(express.json());
 app.use(cookieParser());
@@ -29,10 +43,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Mount authentication routes underneath /auth
+// Mount authentication routes for both prefixed and direct paths.
+app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
 
-// Mount the facebook API routes underneath /facebook
+// Mount Facebook routes for both prefixed and direct paths.
+app.use('/api/facebook', facebookRoutes);
 app.use('/facebook', facebookRoutes);
 
 // General simple health check (directly on backend)
@@ -40,8 +56,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Backend is running' });
+});
+
 // Global catch-all
-app.use('*', (req, res) => {
+app.use((req, res) => {
   console.warn(`[Backend] 404/405 at ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: `Route ${req.originalUrl} not found on backend.` });
 });
