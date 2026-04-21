@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useFacebookContext } from '../../context/FacebookDataContext';
 import { Facebook, Link, Unlink, AlertCircle } from 'lucide-react';
+import api from '../../utils/api';
 
 const APP_ID       = import.meta.env.VITE_FB_APP_ID;
 const REDIRECT_URI = `${window.location.origin}/auth/facebook/callback`;
@@ -8,6 +9,7 @@ const REDIRECT_URI = `${window.location.origin}/auth/facebook/callback`;
 // Some app configurations reject `email` unless specific products/settings are enabled.
 const DEFAULT_SCOPES = ['public_profile'];
 const allowEmailScope = import.meta.env.VITE_FB_INCLUDE_EMAIL_SCOPE === 'true';
+const OAUTH_STATE_KEY = 'fb_oauth_state';
 const configuredScopes = (import.meta.env.VITE_FB_LOGIN_SCOPES || DEFAULT_SCOPES.join(','))
   .split(',')
   .map((scope) => scope.trim())
@@ -19,7 +21,6 @@ const FacebookConnectCard = () => {
   const { connected, profile, connectAccount, disconnectAccount, loading } = useFacebookContext();
   const [authInProgress, setAuthInProgress] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const scopeFallbackRef = useRef(false);
   const popupRef = useRef(null);
   const listenerRef = useRef(null);
 
@@ -31,7 +32,7 @@ const FacebookConnectCard = () => {
     };
   }, []);
 
-  const handleConnect = (useScopeFallback = false) => {
+  const handleConnect = () => {
     setErrorMsg('');
 
     if (!APP_ID) {
@@ -39,16 +40,18 @@ const FacebookConnectCard = () => {
       return;
     }
 
+    const state = crypto.randomUUID();
+    sessionStorage.setItem(OAUTH_STATE_KEY, state);
+
     // Build the Facebook OAuth URL (implicit / token flow)
-    let oauthUrl =
+    const oauthUrl =
       `https://www.facebook.com/dialog/oauth` +
       `?client_id=${APP_ID}` +
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-      `&response_type=token` +
+      `&scope=${encodeURIComponent(SCOPES)}` +
+      `&response_type=code` +
+      `&state=${encodeURIComponent(state)}` +
       `&display=popup`;
-    if (!useScopeFallback && SCOPES) {
-      oauthUrl += `&scope=${encodeURIComponent(SCOPES)}`;
-    }
 
     // Open a centered popup
     const width  = 600;
@@ -78,10 +81,40 @@ const FacebookConnectCard = () => {
       if (event.data?.type === 'FB_OAUTH_SUCCESS') {
         window.removeEventListener('message', onMessage);
         listenerRef.current = null;
-        scopeFallbackRef.current = false;
 
-        console.log('[FB Connect] Success! Token received.');
-        const result = await connectAccount(event.data.accessToken);
+        console.log('[FB Connect] Success! Authorization response received.');
+        let shortLivedToken = event.data.accessToken;
+
+        if (!shortLivedToken && event.data.code) {
+          const expectedState = sessionStorage.getItem(OAUTH_STATE_KEY);
+          sessionStorage.removeItem(OAUTH_STATE_KEY);
+          if (!expectedState || event.data.state !== expectedState) {
+            setAuthInProgress(false);
+            setErrorMsg('Facebook login failed: invalid OAuth state. Please try again.');
+            return;
+          }
+
+          try {
+            const exchangeRes = await api.post('/facebook/oauth/exchange-code', {
+              code: event.data.code,
+              redirectUri: REDIRECT_URI,
+            });
+            shortLivedToken = exchangeRes.data?.accessToken;
+          } catch (exchangeError) {
+            setAuthInProgress(false);
+            const details = exchangeError?.response?.data?.details || exchangeError?.response?.data?.error || exchangeError.message;
+            setErrorMsg(`Facebook login failed: ${details}`);
+            return;
+          }
+        }
+
+        if (!shortLivedToken) {
+          setAuthInProgress(false);
+          setErrorMsg('Facebook login failed: no access token received from Meta.');
+          return;
+        }
+
+        const result = await connectAccount(shortLivedToken);
         setAuthInProgress(false);
         if (!result.success) {
           console.error('[FB Connect] connectAccount failed:', result.error);
@@ -92,20 +125,10 @@ const FacebookConnectCard = () => {
       if (event.data?.type === 'FB_OAUTH_ERROR') {
         window.removeEventListener('message', onMessage);
         listenerRef.current = null;
+        sessionStorage.removeItem(OAUTH_STATE_KEY);
         setAuthInProgress(false);
         console.error('[FB Connect] Authorization error:', event.data.error);
         const reason = event.data.error || 'Facebook authorization was cancelled.';
-
-        const shouldRetryWithoutScope = !scopeFallbackRef.current
-          && /invalid scopes|supported permission/i.test(reason);
-
-        if (shouldRetryWithoutScope) {
-          scopeFallbackRef.current = true;
-          setErrorMsg('Retrying Facebook login with minimal permissions...');
-          handleConnect(true);
-          return;
-        }
-
         setErrorMsg(`Facebook login failed: ${reason}. Check your Meta app permissions and OAuth redirect URI settings.`);
       }
     };

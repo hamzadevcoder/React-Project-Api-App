@@ -130,6 +130,37 @@ router.post('/connect', requireAuth, async (req, res) => {
 });
 
 /**
+ * POST /api/facebook/oauth/exchange-code
+ * Exchanges an OAuth authorization code for a user access token.
+ */
+router.post('/oauth/exchange-code', requireAuth, async (req, res) => {
+  try {
+    const { code, redirectUri } = req.body;
+    if (!code || !redirectUri) {
+      return res.status(400).json({ error: 'Missing OAuth code or redirectUri' });
+    }
+
+    const tokenData = await facebookService.exchangeAuthorizationCode(code, redirectUri);
+    if (!tokenData?.access_token) {
+      return res.status(502).json({ error: 'Facebook did not return an access token' });
+    }
+
+    return res.json({
+      success: true,
+      accessToken: tokenData.access_token,
+      tokenType: tokenData.token_type,
+      expiresIn: tokenData.expires_in,
+    });
+  } catch (error) {
+    console.error('OAuth code exchange error:', error.response?.data || error.message);
+    return res.status(500).json({
+      error: 'Failed to exchange Facebook OAuth code',
+      details: error.response?.data?.error?.message || error.message,
+    });
+  }
+});
+
+/**
  * DELETE /api/facebook/disconnect
  * Revokes Graph API token via the API and clears local mock DB.
  */

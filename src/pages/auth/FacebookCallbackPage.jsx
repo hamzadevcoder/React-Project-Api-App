@@ -20,6 +20,8 @@ const FacebookCallbackPage = () => {
     const searchParams = new URLSearchParams(window.location.search);
 
     const accessToken = hashParams.get('access_token') || searchParams.get('access_token');
+    const code = searchParams.get('code') || hashParams.get('code');
+    const state = searchParams.get('state') || hashParams.get('state');
     const error       = hashParams.get('error')        || searchParams.get('error');
     const errorReason = hashParams.get('error_reason') || searchParams.get('error_reason') || searchParams.get('error_description');
 
@@ -29,6 +31,11 @@ const FacebookCallbackPage = () => {
       if (accessToken) {
         window.opener.postMessage(
           { type: 'FB_OAUTH_SUCCESS', accessToken },
+          window.location.origin
+        );
+      } else if (code) {
+        window.opener.postMessage(
+          { type: 'FB_OAUTH_SUCCESS', code, state },
           window.location.origin
         );
       } else {
@@ -43,6 +50,10 @@ const FacebookCallbackPage = () => {
       // Fallback: no opener — store in localStorage and redirect back to dashboard
       if (accessToken) {
         localStorage.setItem('fb_pending_token', accessToken);
+        window.location.href = '/dashboard';
+      } else if (code) {
+        localStorage.setItem('fb_pending_code', code);
+        if (state) localStorage.setItem('fb_pending_state', state);
         window.location.href = '/dashboard';
       } else {
         // If error and no opener, just go home

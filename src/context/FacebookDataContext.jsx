@@ -56,6 +56,25 @@ export const FacebookDataProvider = ({ children }) => {
       return; // connectAccount will handle the rest
     }
 
+    // 1b. If popup flow wasn't available, exchange pending OAuth code server-side.
+    const pendingCode = localStorage.getItem('fb_pending_code');
+    if (pendingCode) {
+      localStorage.removeItem('fb_pending_code');
+      localStorage.removeItem('fb_pending_state');
+      const redirectUri = `${window.location.origin}/auth/facebook/callback`;
+      api
+        .post('/facebook/oauth/exchange-code', { code: pendingCode, redirectUri })
+        .then((res) => {
+          if (res.data?.accessToken) return connectAccount(res.data.accessToken);
+          throw new Error('Facebook did not return an access token.');
+        })
+        .catch((error) => {
+          console.error('Pending Facebook code exchange failed:', error);
+          setLoading(false);
+        });
+      return;
+    }
+
     // 2. Load existing session
     const saved = loadFbSession();
     if (saved) {

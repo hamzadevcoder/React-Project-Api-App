@@ -33,6 +33,30 @@ class FacebookService {
   }
 
   /**
+   * Exchanges an OAuth authorization code for a user access token.
+   */
+  async exchangeAuthorizationCode(code, redirectUri) {
+    if (!this.appId || !this.appSecret) {
+      throw new Error('Server is missing FB_APP_ID or FB_APP_SECRET environment variables');
+    }
+
+    try {
+      const response = await axios.get(`${this.GRAPH_URL}/oauth/access_token`, {
+        params: {
+          client_id: this.appId,
+          client_secret: this.appSecret,
+          redirect_uri: redirectUri,
+          code,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error exchanging authorization code:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Basic Graph API generic GET request wrapper.
    */
   async get(endpoint, accessToken, params = {}) {
