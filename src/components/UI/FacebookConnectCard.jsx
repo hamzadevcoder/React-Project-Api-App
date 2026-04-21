@@ -19,6 +19,7 @@ const FacebookConnectCard = () => {
   const { connected, profile, connectAccount, disconnectAccount, loading } = useFacebookContext();
   const [authInProgress, setAuthInProgress] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const scopeFallbackRef = useRef(false);
   const popupRef = useRef(null);
   const listenerRef = useRef(null);
 
@@ -30,7 +31,7 @@ const FacebookConnectCard = () => {
     };
   }, []);
 
-  const handleConnect = () => {
+  const handleConnect = (useScopeFallback = false) => {
     setErrorMsg('');
 
     if (!APP_ID) {
@@ -39,13 +40,15 @@ const FacebookConnectCard = () => {
     }
 
     // Build the Facebook OAuth URL (implicit / token flow)
-    const oauthUrl =
+    let oauthUrl =
       `https://www.facebook.com/dialog/oauth` +
       `?client_id=${APP_ID}` +
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-      `&scope=${encodeURIComponent(SCOPES)}` +
       `&response_type=token` +
       `&display=popup`;
+    if (!useScopeFallback && SCOPES) {
+      oauthUrl += `&scope=${encodeURIComponent(SCOPES)}`;
+    }
 
     // Open a centered popup
     const width  = 600;
@@ -75,6 +78,7 @@ const FacebookConnectCard = () => {
       if (event.data?.type === 'FB_OAUTH_SUCCESS') {
         window.removeEventListener('message', onMessage);
         listenerRef.current = null;
+        scopeFallbackRef.current = false;
 
         console.log('[FB Connect] Success! Token received.');
         const result = await connectAccount(event.data.accessToken);
@@ -91,6 +95,17 @@ const FacebookConnectCard = () => {
         setAuthInProgress(false);
         console.error('[FB Connect] Authorization error:', event.data.error);
         const reason = event.data.error || 'Facebook authorization was cancelled.';
+
+        const shouldRetryWithoutScope = !scopeFallbackRef.current
+          && /invalid scopes|supported permission/i.test(reason);
+
+        if (shouldRetryWithoutScope) {
+          scopeFallbackRef.current = true;
+          setErrorMsg('Retrying Facebook login with minimal permissions...');
+          handleConnect(true);
+          return;
+        }
+
         setErrorMsg(`Facebook login failed: ${reason}. Check your Meta app permissions and OAuth redirect URI settings.`);
       }
     };
