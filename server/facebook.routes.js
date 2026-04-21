@@ -93,16 +93,24 @@ router.post('/connect', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Missing shortLivedToken' });
     }
 
-    // 1. Exchange for long-lived token
-    const tokenData = await facebookService.exchangeForLongLivedToken(shortLivedToken);
-    const longLivedToken = tokenData.access_token;
-    
-    // 2. Fetch basic user profile to confirm it works & cache identity
-    const profile = await facebookService.get('/me', longLivedToken, {
+    // 1. Prefer exchanging for a long-lived token, but fall back to short-lived token
+    // if exchange is unavailable (common when FB env vars are missing in deployment).
+    let effectiveToken = shortLivedToken;
+    try {
+      const tokenData = await facebookService.exchangeForLongLivedToken(shortLivedToken);
+      if (tokenData?.access_token) {
+        effectiveToken = tokenData.access_token;
+      }
+    } catch (exchangeError) {
+      console.warn('[Facebook Connect] Token exchange failed, using short-lived token:', exchangeError.message);
+    }
+
+    // 2. Fetch basic user profile to confirm token works & cache identity
+    const profile = await facebookService.get('/me', effectiveToken, {
       fields: 'id,name,email,picture,birthday'
     });
 
-    req.user.facebook_access_token = longLivedToken;
+    req.user.facebook_access_token = effectiveToken;
     req.user.facebook_user_id = profile.id;
     req.user.facebook_profile = {
       id: profile.id,
