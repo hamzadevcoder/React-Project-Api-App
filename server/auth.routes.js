@@ -1,8 +1,10 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
+import mongoose from 'mongoose';
 import User from './models/user.model.js';
 import { requireAuth, setAuthCookie } from './middleware/auth.middleware.js';
+import { findMockUserByEmail, saveMockUser } from './mockDb.js';
 
 const router = express.Router();
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
@@ -25,10 +27,7 @@ const sendVerificationEmail = async (toEmail, code) => {
     host: process.env.EMAIL_HOST,
     port: Number(process.env.EMAIL_PORT || 587),
     secure: Number(process.env.EMAIL_PORT) === 465,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
   });
 
   await transporter.sendMail({
@@ -43,13 +42,15 @@ const sendVerificationEmail = async (toEmail, code) => {
  * Returns safe user payload for frontend.
  */
 const sanitizeUser = (user) => ({
-  id: user.id,
+  id: user.id || user._id,
   name: user.full_name,
   full_name: user.full_name,
   email: user.email,
   email_verified: user.email_verified,
-  appId: `app_${user.id.slice(-8)}`,
+  appId: `app_${(user.id || user._id || '').toString().slice(-8)}`,
 });
+
+const isDbConnected = () => mongoose.connection.readyState === 1;
 
 /**
  * Registers a new account and sends email verification code.
@@ -75,23 +76,34 @@ router.post('/signup', async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const existingUser = await User.findOne({ email: normalizedEmail });
-    if (existingUser) {
-      return res.status(409).json({ error: 'An account with this email already exists.' });
+    let user;
+
+    if (isDbConnected()) {
+      const existingUser = await User.findOne({ email: normalizedEmail });
+      if (existingUser) return res.status(409).json({ error: 'An account with this email already exists.' });
+    } else {
+      const existingUser = findMockUserByEmail(normalizedEmail);
+      if (existingUser) return res.status(409).json({ error: 'An account with this email already exists.' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const verificationCode = generateVerificationCode();
     const verificationExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    const user = await User.create({
+    const userData = {
       full_name: fullName.trim(),
       email: normalizedEmail,
       password_hash: passwordHash,
       email_verified: false,
       verification_code: verificationCode,
       verification_code_expires_at: verificationExpiry,
-    });
+    };
+
+    if (isDbConnected()) {
+      user = await User.create(userData);
+    } else {
+      user = saveMockUser(userData);
+    }
 
     await sendVerificationEmail(user.email, verificationCode);
     return res.status(201).json({ success: true, email: user.email });
@@ -107,29 +119,33 @@ router.post('/signup', async (req, res) => {
 router.post('/verify-email', async (req, res) => {
   try {
     const { email, code } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ error: 'Email and code are required.' });
+    if (!email || !code) return res.status(400).json({ error: 'Email and code are required.' });
+
+    let user;
+    if (isDbConnected()) {
+      user = await User.findOne({ email: email.toLowerCase().trim() });
+    } else {
+      user = findMockUserByEmail(email);
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) {
-      return res.status(404).json({ error: 'No account found with this email. Please sign up first.' });
-    }
+    if (!user) return res.status(404).json({ error: 'No account found with this email. Please sign up first.' });
 
-    if (!user.verification_code_expires_at || user.verification_code_expires_at.getTime() < Date.now()) {
-      return res.status(400).json({ error: 'Code expired. Click Resend.' });
-    }
+    const expiry = user.verification_code_expires_at instanceof Date ? user.verification_code_expires_at : new Date(user.verification_code_expires_at);
+    if (!expiry || expiry.getTime() < Date.now()) return res.status(400).json({ error: 'Code expired. Click Resend.' });
 
-    if (user.verification_code !== code) {
-      return res.status(400).json({ error: 'Incorrect code. Please try again.' });
-    }
+    if (user.verification_code !== code) return res.status(400).json({ error: 'Incorrect code. Please try again.' });
 
     user.email_verified = true;
     user.verification_code = null;
     user.verification_code_expires_at = null;
-    await user.save();
+    
+    if (isDbConnected()) {
+      await user.save();
+    } else {
+      saveMockUser(user);
+    }
 
-    setAuthCookie(res, user.id);
+    setAuthCookie(res, user.id || user._id);
     return res.json({ success: true, user: sanitizeUser(user) });
   } catch (error) {
     console.error('Verify email error:', error);
@@ -143,22 +159,26 @@ router.post('/verify-email', async (req, res) => {
 router.post('/resend-code', async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required.' });
+    if (!email) return res.status(400).json({ error: 'Email is required.' });
+
+    let user;
+    if (isDbConnected()) {
+      user = await User.findOne({ email: email.toLowerCase().trim() });
+    } else {
+      user = findMockUserByEmail(email);
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) {
-      return res.status(404).json({ error: 'No account found with this email. Please sign up first.' });
-    }
-
-    if (user.email_verified) {
-      return res.status(400).json({ error: 'Email is already verified.' });
-    }
+    if (!user) return res.status(404).json({ error: 'No account found with this email. Please sign up first.' });
+    if (user.email_verified) return res.status(400).json({ error: 'Email is already verified.' });
 
     user.verification_code = generateVerificationCode();
     user.verification_code_expires_at = new Date(Date.now() + 10 * 60 * 1000);
-    await user.save();
+    
+    if (isDbConnected()) {
+      await user.save();
+    } else {
+      saveMockUser(user);
+    }
 
     await sendVerificationEmail(user.email, user.verification_code);
     return res.json({ success: true });
@@ -174,33 +194,26 @@ router.post('/resend-code', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Please fill in all fields.' });
+    if (!email || !password) return res.status(400).json({ error: 'Please fill in all fields.' });
+    if (!EMAIL_REGEX.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+
+    let user;
+    if (isDbConnected()) {
+      user = await User.findOne({ email: email.toLowerCase().trim() });
+    } else {
+      user = findMockUserByEmail(email);
     }
 
-    if (!EMAIL_REGEX.test(email)) {
-      return res.status(400).json({ error: 'Please enter a valid email address.' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) {
-      return res.status(404).json({ error: 'No account found with this email. Please sign up first.' });
-    }
+    if (!user) return res.status(404).json({ error: 'No account found with this email. Please sign up first.' });
 
     const matches = await bcrypt.compare(password, user.password_hash);
-    if (!matches) {
-      return res.status(401).json({ error: 'Incorrect password. Please try again.' });
-    }
+    if (!matches) return res.status(401).json({ error: 'Incorrect password. Please try again.' });
 
     if (!user.email_verified) {
       return res.status(403).json({ error: 'Please verify your email first.', requiresVerification: true, email: user.email });
     }
 
-    setAuthCookie(res, user.id);
+    setAuthCookie(res, user.id || user._id);
     return res.json({ success: true, user: sanitizeUser(user) });
   } catch (error) {
     console.error('Login error:', error);

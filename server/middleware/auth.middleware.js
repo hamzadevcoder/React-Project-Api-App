@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../models/user.model.js';
+import { findMockUserById } from '../mockDb.js';
 
 /**
  * Reads JWT from cookies and returns current authenticated user.
@@ -17,7 +19,14 @@ export const requireAuth = async (req, res, next) => {
     }
 
     const payload = jwt.verify(token, jwtSecret);
-    const user = await User.findById(payload.userId);
+    let user;
+
+    if (mongoose.connection.readyState === 1) {
+      user = await User.findById(payload.userId);
+    } else {
+      user = findMockUserById(payload.userId);
+    }
+
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

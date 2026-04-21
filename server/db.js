@@ -7,9 +7,16 @@ export const connectToDatabase = async () => {
   const mongoUri = process.env.DATABASE_URL;
 
   if (!mongoUri) {
-    throw new Error('Missing DATABASE_URL environment variable');
+    console.warn('⚠️  DATABASE_URL missing. Server will run with In-Memory Mock Database (data will be lost on restart).');
+    return false;
   }
 
-  await mongoose.connect(mongoUri);
-  console.log('MongoDB connected');
+  try {
+    await mongoose.connect(mongoUri);
+    console.log('✅ MongoDB connected');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to connect to MongoDB:', error.message);
+    throw error;
+  }
 };
