@@ -26,6 +26,13 @@ app.use(cors({
     const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
     const allowedOrigins = [...new Set([...defaultOrigins, ...explicitOrigins])];
 
+    // If no production origins are explicitly configured, accept the request origin.
+    // This keeps single-domain Railway deployments working without manual CORS setup.
+    if (origin && explicitOrigins.length === 0 && process.env.NODE_ENV === 'production') {
+      callback(null, true);
+      return;
+    }
+
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
       return;

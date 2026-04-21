@@ -72,6 +72,8 @@ For production (Vercel/Railway), set `VITE_API_BASE_URL` to your backend API dom
 If you deploy this repo as a single Railway service, use:
 - Build command: `npm run build`
 - Start command: `npm start`
+- Set Railway env `DATABASE_URL` to your MongoDB URI
+- Set Railway env `REQUIRE_EMAIL_VERIFICATION=false` if you want signup to go directly to dashboard
 
 The Express server now serves both:
 - API routes under `/api/*`

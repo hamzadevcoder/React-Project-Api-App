@@ -62,8 +62,12 @@ const LoginPage = () => {
         return;
       }
 
-      // Redirect to verification page after successful signup
-      navigate('/verify-email', { state: { email: form.email } });
+      if (result.requiresVerification) {
+        navigate('/verify-email', { state: { email: form.email } });
+        return;
+      }
+
+      navigate('/dashboard');
     } catch (err) {
       console.error('Unhandled submission error:', err);
       setError('An unexpected error occurred. Please try again.');

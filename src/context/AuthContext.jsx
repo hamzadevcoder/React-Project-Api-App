@@ -29,7 +29,15 @@ export const AuthProvider = ({ children }) => {
   const signup = async ({ fullName, email, password, confirmPassword }) => {
     try {
       const res = await api.post('/auth/signup', { fullName, email, password, confirmPassword });
-      return { success: true, email: res.data.email };
+      if (res.data?.user) {
+        setUser(res.data.user);
+      }
+      return {
+        success: true,
+        email: res.data.email,
+        user: res.data.user,
+        requiresVerification: Boolean(res.data.requiresVerification),
+      };
     } catch (err) {
       return { success: false, error: err.message };
     }

@@ -8,6 +8,7 @@ import { findMockUserByEmail, saveMockUser } from './mockDb.js';
 
 const router = express.Router();
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
+const shouldRequireEmailVerification = () => process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 
 router.use((req, _res, next) => {
   console.log(`[Auth Route Hit] ${req.method} /auth${req.path}`);
@@ -106,9 +107,9 @@ const handleRegister = async (req, res) => {
       full_name: fullName.trim(),
       email: normalizedEmail,
       password_hash: passwordHash,
-      email_verified: false,
-      verification_code: verificationCode,
-      verification_code_expires_at: verificationExpiry,
+      email_verified: !shouldRequireEmailVerification(),
+      verification_code: shouldRequireEmailVerification() ? verificationCode : null,
+      verification_code_expires_at: shouldRequireEmailVerification() ? verificationExpiry : null,
     };
 
     if (isDbConnected()) {
@@ -117,11 +118,16 @@ const handleRegister = async (req, res) => {
       user = saveMockUser(userData);
     }
 
-    const emailSent = await sendVerificationEmail(user.email, verificationCode);
-    if (!emailSent && process.env.REQUIRE_EMAIL_DELIVERY === 'true') {
-      return res.status(503).json({ error: 'Unable to send verification email right now. Please try again later.' });
+    if (shouldRequireEmailVerification()) {
+      const emailSent = await sendVerificationEmail(user.email, verificationCode);
+      if (!emailSent && process.env.REQUIRE_EMAIL_DELIVERY === 'true') {
+        return res.status(503).json({ error: 'Unable to send verification email right now. Please try again later.' });
+      }
+      return res.status(201).json({ success: true, email: user.email, requiresVerification: true });
     }
-    return res.status(201).json({ success: true, email: user.email });
+
+    setAuthCookie(res, user.id || user._id);
+    return res.status(201).json({ success: true, user: sanitizeUser(user), requiresVerification: false });
   } catch (error) {
     console.error('Signup error:', error);
     return res.status(500).json({ error: 'Failed to create account.' });
