@@ -23,7 +23,11 @@ import ChangelogPage from './pages/docs/ChangelogPage';
 const ProtectedRoute = ({ children }) => {
   const { isLoggedIn, authReady } = useAuth();
   if (!authReady) {
-    return <div className="min-h-screen bg-[#F0F2F5] dark:bg-dark-bg" />;
+    return (
+      <div className="min-h-screen bg-[#F0F2F5] dark:bg-dark-bg flex items-center justify-center">
+        <div className="inline-block w-7 h-7 border-2 border-facebook-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
   return isLoggedIn ? children : <Navigate to="/login" replace />;
 };

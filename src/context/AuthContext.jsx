@@ -11,17 +11,18 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Prevent indefinite loading screen if backend is unreachable.
-        const timeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Auth check timed out')), 8000)
-        );
-        const res = await Promise.race([api.get('/auth/me'), timeout]);
+        const res = await Promise.race([
+          api.get('/auth/me'),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+          ),
+        ]);
         if (res.data?.user) {
           setUser(res.data.user);
         }
       } catch (err) {
         // Not logged in or server down — ignore
-        console.log('[Auth] No active session found.', err?.message || '');
+        console.log('[Auth] No active session found.');
       } finally {
         setAuthReady(true);
       }
@@ -70,9 +71,9 @@ export const AuthProvider = ({ children }) => {
   const refreshMe = async () => {
     try {
       const res = await api.get('/auth/me');
-      setUser(res.data?.user || null);
+      if (res.data?.user) setUser(res.data.user);
     } catch {
-      setUser(null);
+      // Ignore refresh failures; consumer can rely on existing auth state.
     }
   };
 
