@@ -11,12 +11,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await Promise.race([
-          api.get('/auth/me'),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Auth check timeout')), 5000)
-          ),
-        ]);
+        const res = await api.get('/auth/me');
         if (res.data?.user) {
           setUser(res.data.user);
         }
