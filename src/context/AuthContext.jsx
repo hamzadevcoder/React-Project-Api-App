@@ -11,13 +11,17 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await api.get('/auth/me');
+        // Prevent indefinite loading screen if backend is unreachable.
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Auth check timed out')), 8000)
+        );
+        const res = await Promise.race([api.get('/auth/me'), timeout]);
         if (res.data?.user) {
           setUser(res.data.user);
         }
       } catch (err) {
         // Not logged in or server down — ignore
-        console.log('[Auth] No active session found.');
+        console.log('[Auth] No active session found.', err?.message || '');
       } finally {
         setAuthReady(true);
       }
@@ -64,8 +68,12 @@ export const AuthProvider = ({ children }) => {
 
   /* ── refreshMe ── */
   const refreshMe = async () => {
-    const session = getSession();
-    if (session) setUser(session);
+    try {
+      const res = await api.get('/auth/me');
+      setUser(res.data?.user || null);
+    } catch {
+      setUser(null);
+    }
   };
 
   return (
